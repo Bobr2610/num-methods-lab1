@@ -1,102 +1,198 @@
-from cmath import sqrt
+import cmath
+import math
 
-from numerics import input_path, print_matrix, print_values, read_matrix, read_values, require_finite, require_size
+from input_output import (
+    format_number, input_path, print_matrix, print_vector, read_eps,
+    read_matrix, read_size, read_tokens, require_end, require_token, save_step,
+)
+from matrix_operations import (
+    copy_matrix, identity_matrix, matrix_difference, matrix_product, transpose,
+)
 
 
-def qr_factorization(matrix):
-    size = len(matrix)
-    upper = [[complex(value) for value in row] for row in matrix]
-    orthogonal = [[complex(i == j) for j in range(size)] for i in range(size)]
+def read_problem(path):
+    tokens = read_tokens(path)
+    n = read_size(tokens[0])
+    A, start = read_matrix(tokens, n, 1)
+    eps = read_eps(require_token(tokens, start))
+    n = read_size(require_token(tokens, start + 1))
+    example, end = read_matrix(tokens, n, start + 2)
+    require_end(tokens, end)
+    return A, eps, example
 
-    for column in range(size):
-        vector = [upper[row][column] for row in range(column, size)]
-        length = sum(abs(value) ** 2 for value in vector) ** 0.5
-        if length == 0:
+
+def householder_matrix(b):
+    n = len(b)
+    E = identity_matrix(n)
+    length = math.hypot(*b)
+    if length == 0:
+        return E
+
+    e1 = [0.0] * n
+    e1[0] = 1.0
+    sign = 1.0 if b[0] >= 0 else -1.0
+    v = b.copy()
+    for i in range(n):
+        v[i] += sign * length * e1[i]
+
+    denom = sum(value * value for value in v)
+    H = copy_matrix(E)
+    for i in range(n):
+        for j in range(n):
+            H[i][j] -= 2 * v[i] * v[j] / denom
+    return H
+
+
+def qr_decomposition(A):
+    n = len(A)
+    Q = identity_matrix(n)
+    R = copy_matrix(A)
+    for k in range(n - 1):
+        b = [R[i][k] for i in range(k, n)]
+        block = householder_matrix(b)
+        H = identity_matrix(n)
+        for i in range(k, n):
+            for j in range(k, n):
+                H[i][j] = block[i - k][j - k]
+        R = matrix_product(H, R)
+        Q = matrix_product(Q, H)
+    return Q, R
+
+
+def column_tail_norm(A, j):
+    value = 0.0
+    for i in range(j + 1, len(A)):
+        value = math.hypot(value, A[i][j])
+    return value
+
+
+def separation_norm(A, end):
+    value = 0.0
+    for i in range(end, len(A)):
+        for j in range(end):
+            value = math.hypot(value, A[i][j])
+    return value
+
+
+def block_eigenvalues(A, i):
+    a = A[i][i]
+    b = A[i][i + 1]
+    c = A[i + 1][i]
+    d = A[i + 1][i + 1]
+    root = cmath.sqrt((a - d) ** 2 + 4 * b * c)
+    return ((a + d + root) / 2, (a + d - root) / 2)
+
+
+def pair_difference(values, previous):
+    direct = max(abs(values[0] - previous[0]), abs(values[1] - previous[1]))
+    reverse = max(abs(values[0] - previous[1]), abs(values[1] - previous[0]))
+    return min(direct, reverse)
+
+
+def isolated_eigenvalues(A, A_prev, eps):
+    n = len(A)
+    lambdas = []
+    checks = []
+    i = 0
+
+    while i < n:
+        tail = column_tail_norm(A, i)
+        coupling = separation_norm(A, i + 1)
+        if tail <= eps and coupling <= eps:
+            lambdas.append(A[i][i])
+            checks.append((i + 1, i + 1, tail, coupling, None, None))
+            i += 1
             continue
-        first = vector[0]
-        phase = first / abs(first) if first else 1.0 + 0.0j
-        vector[0] += phase * length
-        denominator = sum(abs(value) ** 2 for value in vector)
-        if denominator == 0:
-            continue
 
-        for j in range(column, size):
-            projection = 2 * sum(vector[k].conjugate() * upper[column + k][j] for k in range(len(vector))) / denominator
-            for k, value in enumerate(vector):
-                upper[column + k][j] -= value * projection
-        for i in range(size):
-            projection = 2 * sum(orthogonal[i][column + k] * vector[k] for k in range(len(vector))) / denominator
-            for k, value in enumerate(vector):
-                orthogonal[i][column + k] -= projection * value.conjugate()
+        if i + 1 == n:
+            checks.append((i + 1, i + 1, tail, coupling, None, None))
+            return None, checks
 
-    return orthogonal, upper
+        values = block_eigenvalues(A, i)
+        coupling = separation_norm(A, i + 2)
+        change = math.inf
+        if A_prev is not None:
+            previous = block_eigenvalues(A_prev, i)
+            change = pair_difference(values, previous)
+        checks.append((i + 1, i + 2, tail, coupling, change, values))
+
+        if values[0].imag == 0 or coupling > eps or change > eps:
+            return None, checks
+        lambdas.extend(values)
+        i += 2
+
+    return lambdas, checks
 
 
-def shifted_eigenvalues(matrix, tolerance):
-    work = [[complex(value) for value in row] for row in matrix]
-    size = len(work)
-    active = size
-    steps = 0
-    limit = max(1000, 5000 * size)
+def qr_eigenvalues(A0, eps, max_iter=10000):
+    A = copy_matrix(A0)
+    lambdas, checks = isolated_eigenvalues(A, None, eps)
+    trace = []
+    if lambdas is not None:
+        return lambdas, 0, trace
 
-    while active > 1:
-        scale = abs(work[active - 1][active - 1]) + abs(work[active - 2][active - 2]) + 1.0
-        if abs(work[active - 1][active - 2]) <= tolerance * scale:
-            work[active - 1][active - 2] = 0j
-            active -= 1
-            continue
-        if steps >= limit:
-            raise ValueError("The shifted QR iteration did not converge within its iteration limit.")
+    for k in range(1, max_iter + 1):
+        A_prev = A
+        Q, R = qr_decomposition(A)
+        A = matrix_product(R, Q)
+        if not all(math.isfinite(value) for row in A for value in row):
+            raise ValueError("QR-итерации привели к неконечным значениям.")
 
-        a = work[active - 2][active - 2]
-        b = work[active - 2][active - 1]
-        c = work[active - 1][active - 2]
-        d = work[active - 1][active - 1]
-        root = sqrt((a - d) * (a - d) + 4 * b * c)
-        shifts = ((a + d + root) / 2, (a + d - root) / 2)
-        shift = min(shifts, key=lambda value: abs(value - d))
+        lambdas, checks = isolated_eigenvalues(A, A_prev, eps)
+        save_step(trace, (k, copy_matrix(A), checks))
+        if lambdas is not None:
+            return lambdas, k, trace
 
-        block = [[work[i][j] - (shift if i == j else 0) for j in range(active)] for i in range(active)]
-        orthogonal, upper = qr_factorization(block)
-        updated = [[sum(upper[i][k] * orthogonal[k][j] for k in range(active)) + (shift if i == j else 0) for j in range(active)] for i in range(active)]
-        for i in range(active):
-            for j in range(active):
-                work[i][j] = updated[i][j]
-        steps += 1
+    raise ValueError(f"QR-алгоритм не сошёлся за {max_iter} итераций.")
 
-    return [work[i][i] for i in range(size)], steps
+
+def print_iterations(trace, eps):
+    for k, A, checks in trace:
+        print(f"\nQR-итерация {k}")
+        print_matrix("A", A)
+        for start, end, tail, coupling, change, values in checks:
+            print(f"Блок {start}–{end}: связь = {format_number(coupling)}")
+            if start == end:
+                print(f"Норма хвоста столбца = {format_number(tail)}")
+                print(f"Хвост и связь ≤ ε: {tail <= eps and coupling <= eps}")
+            else:
+                print_vector("Корни блока", values)
+                print(f"Изменение пары = {format_number(change)}")
+                ready = values[0].imag != 0 and coupling <= eps and change <= eps
+                print(f"Комплексная пара изолирована и устойчива: {ready}")
+
+
+def print_problem(title, A, eps):
+    print(f"\n{title}")
+    Q, R = qr_decomposition(A)
+    QR = matrix_product(Q, R)
+    QQ = matrix_product(transpose(Q), Q)
+    print_matrix("A", A)
+    print_matrix("Q", Q)
+    print_matrix("R", R)
+    print_matrix("Q · R", QR)
+    print(f"max |QR − A| = {matrix_difference(QR, A):.3e}")
+    print(f"max |QᵀQ − E| = {matrix_difference(QQ, identity_matrix(len(A))):.3e}")
+    print(f"\nТочность ε = {format_number(eps)}")
+    lambdas, k, trace = qr_eigenvalues(A, eps)
+    print_iterations(trace, eps)
+    print(f"\nЧисло QR-итераций: {k}")
+    print_vector("Собственные значения", lambdas)
+    if k == 0:
+        print("Матрица уже верхняя треугольная; нормы хвостов столбцов ≤ ε.")
+    return lambdas
 
 
 def main():
-    values = read_values(input_path())
-    size = int(values[0])
-    require_size(size)
-    matrix, offset = read_matrix(values, size, 1)
-    if len(values) <= offset + 1:
-        raise ValueError("Expected a tolerance, demonstration dimension and demonstration matrix.")
-    tolerance = float(values[offset])
-    example_size = int(values[offset + 1])
-    require_size(example_size)
-    example, end = read_matrix(values, example_size, offset + 2)
-    if end != len(values):
-        raise ValueError("The input contains unexpected values after the demonstration matrix.")
-    if tolerance <= 0:
-        raise ValueError("The tolerance must be positive.")
-    require_finite([value for row in matrix for value in row] + [value for row in example for value in row] + [tolerance])
-
-    orthogonal, upper = qr_factorization(matrix)
-    eigenvalues, steps = shifted_eigenvalues(matrix, tolerance)
-    example_values, example_steps = shifted_eigenvalues(example, tolerance)
-    print_matrix("A", matrix)
-    print_matrix("Q", orthogonal)
-    print_matrix("R", upper)
-    print(f"max |Q · R - A|: {max(abs(sum(orthogonal[i][k] * upper[k][j] for k in range(size)) - matrix[i][j]) for i in range(size) for j in range(size)):.3e}")
-    print_values("Eigenvalues", eigenvalues)
-    print(f"QR iterations: {steps}")
-    print_matrix("Complex-pair example", example)
-    print_values("Example eigenvalues", example_values)
-    print(f"Example QR iterations: {example_steps}")
+    A, eps, example = read_problem(input_path())
+    print_problem("1. Основная матрица", A, eps)
+    lambdas = print_problem("2. Пример с комплексной парой", example, eps)
+    if not any(isinstance(value, complex) and value.imag != 0 for value in lambdas):
+        raise ValueError("Дополнительный пример не содержит комплексной пары.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, OSError, OverflowError) as error:
+        raise SystemExit(str(error))
