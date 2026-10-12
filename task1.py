@@ -1,10 +1,10 @@
-from input_output import (
-    format_number, input_path, print_matrix, print_vector, read_matrix,
-    read_size, read_tokens, read_vector, require_end, save_step,
-)
-from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_product, matrix_vector_product,
-    matrices_equal, zero_matrix,
+from copy import deepcopy
+
+from matrix_tools import (
+    format_number, identity_matrix, input_path, matrix_product,
+    matrix_vector_product, matrices_equal, print_matrix, print_vector,
+    read_matrix, read_size, read_tokens, read_vector, require_end, save_step,
+    zero_matrix,
 )
 
 
@@ -35,7 +35,7 @@ def lu_decomposition(
 ) -> tuple[list[list[float]], list[list[float]], list[list[float]], int, list]:
     n = len(A)
     L = identity_matrix(n)
-    U = copy_matrix(A)
+    U = deepcopy(A)
     P = identity_matrix(n)
     p = 0
     trace = []
@@ -61,7 +61,7 @@ def lu_decomposition(
                 U[i][j] -= mu * U[k][j]
             U[i][k] = 0.0
 
-        save_step(trace, (k + 1, m + 1, values, copy_matrix(U)))
+        save_step(trace, (k + 1, m + 1, values, deepcopy(U)))
 
     return L, U, P, p, trace
 

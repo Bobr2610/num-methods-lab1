@@ -1,14 +1,13 @@
 import cmath
-import math
+from copy import deepcopy
+from math import hypot, inf, isfinite
 
 import numpy as np
 
-from input_output import (
-    format_number, input_path, print_matrix, print_vector, read_eps,
-    read_matrix, read_size, read_tokens, require_end, require_token, save_step,
-)
-from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_product, matrices_equal, transpose,
+from matrix_tools import (
+    format_number, identity_matrix, input_path, matrix_product,
+    matrices_equal, print_matrix, print_vector, read_eps, read_matrix,
+    read_size, read_tokens, require_end, require_token, save_step, transpose,
 )
 
 
@@ -30,7 +29,7 @@ def householder_matrix(
 ) -> list[list[float]]:
     n = len(b)
     E = identity_matrix(n)
-    length = math.hypot(*b)
+    length = hypot(*b)
     if length == 0:
         return E
 
@@ -42,7 +41,7 @@ def householder_matrix(
         v[i] += sign * length * e1[i]
 
     denom = sum(value * value for value in v)
-    H = copy_matrix(E)
+    H = deepcopy(E)
     for i in range(n):
         for j in range(n):
             H[i][j] -= 2 * v[i] * v[j] / denom
@@ -54,7 +53,7 @@ def qr_decomposition(
 ) -> tuple[list[list[float]], list[list[float]]]:
     n = len(A)
     Q = identity_matrix(n)
-    R = copy_matrix(A)
+    R = deepcopy(A)
     for k in range(n - 1):
         b = [R[i][k] for i in range(k, n)]
         block = householder_matrix(b)
@@ -73,7 +72,7 @@ def column_tail_norm(
 ) -> float:
     value = 0.0
     for i in range(j + 1, len(A)):
-        value = math.hypot(value, A[i][j])
+        value = hypot(value, A[i][j])
     return value
 
 
@@ -84,7 +83,7 @@ def separation_norm(
     value = 0.0
     for i in range(end, len(A)):
         for j in range(end):
-            value = math.hypot(value, A[i][j])
+            value = hypot(value, A[i][j])
     return value
 
 
@@ -134,7 +133,7 @@ def isolated_eigenvalues(
 
         values = block_eigenvalues(A, i)
         coupling = separation_norm(A, i + 2)
-        change = math.inf
+        change = inf
         if A_prev is not None:
             previous = block_eigenvalues(A_prev, i)
             change = pair_difference(values, previous)
@@ -153,7 +152,7 @@ def qr_eigenvalues(
         eps: float,
         max_iter: int = 10000
 ) -> tuple[list[float | complex], int, list]:
-    A = copy_matrix(A0)
+    A = deepcopy(A0)
     lambdas, checks = isolated_eigenvalues(A, None, eps)
     trace = []
     if lambdas is not None:
@@ -163,11 +162,11 @@ def qr_eigenvalues(
         A_prev = A
         Q, R = qr_decomposition(A)
         A = matrix_product(R, Q)
-        if not all(math.isfinite(value) for row in A for value in row):
+        if not all(isfinite(value) for row in A for value in row):
             raise ValueError("QR-итерации привели к неконечным значениям.")
 
         lambdas, checks = isolated_eigenvalues(A, A_prev, eps)
-        save_step(trace, (k, copy_matrix(A), checks))
+        save_step(trace, (k, deepcopy(A), checks))
         if lambdas is not None:
             return lambdas, k, trace
 

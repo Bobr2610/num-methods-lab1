@@ -13,8 +13,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import input_output
-import matrix_operations as matrices
+from matrix_tools import input_output
+from matrix_tools import matrix_operations as matrices
 import task1 as lu
 import task2 as sweep
 import task3 as iterations
@@ -237,7 +237,7 @@ class Lab1Tests(unittest.TestCase):
             input_output.read_eps("nan")
 
     def test_source_style(self):
-        for path in ROOT.glob("*.py"):
+        for path in list(ROOT.glob("*.py")) + list((ROOT / "matrix_tools").glob("*.py")):
             source = path.read_text(encoding="utf-8-sig")
             tree = ast.parse(source)
             self.assertIsNone(ast.get_docstring(tree))

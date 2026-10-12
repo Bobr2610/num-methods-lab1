@@ -1,12 +1,11 @@
-import math
+from copy import deepcopy
+from math import atan, cos, isclose, isfinite, pi, sin
 
-from input_output import (
-    format_number, input_path, print_matrix, print_vector, read_eps,
-    read_matrix, read_size, read_tokens, require_end, require_token, save_step,
-)
-from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_product, matrices_equal,
-    off_diagonal_norm, transpose, zero_matrix,
+from matrix_tools import (
+    format_number, identity_matrix, input_path, matrix_product,
+    matrices_equal, off_diagonal_norm, print_matrix, print_vector, read_eps,
+    read_matrix, read_size, read_tokens, require_end, require_token,
+    save_step, transpose, zero_matrix,
 )
 
 
@@ -21,7 +20,7 @@ def read_problem(
 
     for i in range(n):
         for j in range(i + 1, n):
-            if not math.isclose(A[i][j], A[j][i], rel_tol=1e-12, abs_tol=1e-14):
+            if not isclose(A[i][j], A[j][i], rel_tol=1e-12, abs_tol=1e-14):
                 raise ValueError("Метод вращений требует симметричную матрицу.")
     return A, eps
 
@@ -45,15 +44,15 @@ def jacobi_rotation(
         j: int
 ) -> tuple[list[list[float]], float]:
     if A[i][i] == A[j][j]:
-        phi = math.pi / 4
+        phi = pi / 4
     else:
-        phi = 0.5 * math.atan(2 * A[i][j] / (A[i][i] - A[j][j]))
+        phi = 0.5 * atan(2 * A[i][j] / (A[i][i] - A[j][j]))
 
     U = identity_matrix(len(A))
-    U[i][i] = math.cos(phi)
-    U[j][j] = math.cos(phi)
-    U[i][j] = -math.sin(phi)
-    U[j][i] = math.sin(phi)
+    U[i][i] = cos(phi)
+    U[j][j] = cos(phi)
+    U[i][j] = -sin(phi)
+    U[j][i] = sin(phi)
     return U, phi
 
 
@@ -62,7 +61,7 @@ def rotation_method(
         eps: float,
         max_iter: int = 100000
 ) -> tuple[list[list[float]], list[list[float]], int, list]:
-    A = copy_matrix(A0)
+    A = deepcopy(A0)
     V = identity_matrix(len(A))
     trace = []
     t = off_diagonal_norm(A)
@@ -77,10 +76,10 @@ def rotation_method(
         A = matrix_product(matrix_product(transpose(U), A), U)
         V = matrix_product(V, U)
         t = off_diagonal_norm(A)
-        if not math.isfinite(t):
+        if not isfinite(t):
             raise ValueError("Получены неконечные значения при вращении.")
         k += 1
-        save_step(trace, (k, i, j, value, phi, U, copy_matrix(A), t))
+        save_step(trace, (k, i, j, value, phi, U, deepcopy(A), t))
 
     return A, V, k, trace
 

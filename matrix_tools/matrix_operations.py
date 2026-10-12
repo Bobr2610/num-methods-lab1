@@ -1,4 +1,4 @@
-import math
+from math import hypot
 
 
 def zero_matrix(
@@ -17,12 +17,6 @@ def identity_matrix(
     for i in range(n):
         E[i][i] = 1.0
     return E
-
-
-def copy_matrix(
-        A: list[list[float]]
-) -> list[list[float]]:
-    return [row.copy() for row in A]
 
 
 def transpose(
@@ -113,5 +107,5 @@ def off_diagonal_norm(
     t = 0.0
     for i in range(len(A)):
         for j in range(i + 1, len(A)):
-            t = math.hypot(t, A[i][j])
+            t = hypot(t, A[i][j])
     return t

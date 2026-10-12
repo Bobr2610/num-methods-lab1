@@ -1,5 +1,5 @@
-import math
 import sys
+from math import isfinite
 from pathlib import Path
 
 
@@ -7,7 +7,7 @@ def input_path(
         default_name: str
 ) -> str:
     if len(sys.argv) == 1:
-        return str(Path(__file__).resolve().parent / "data" / default_name)
+        return str(Path(__file__).resolve().parent.parent / "data" / default_name)
     if len(sys.argv) == 2:
         return sys.argv[1]
     raise ValueError("Запуск: python <program.py> [input.txt]")
@@ -36,7 +36,7 @@ def read_number(
         token: str
 ) -> float:
     value = float(token)
-    if not math.isfinite(value):
+    if not isfinite(value):
         raise ValueError("Входные числа должны быть конечными.")
     return value
 

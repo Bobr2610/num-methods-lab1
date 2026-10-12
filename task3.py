@@ -1,11 +1,11 @@
-import math
+from math import isfinite
 from typing import Callable
 
-from input_output import (
-    format_number, input_path, print_vector, read_eps, read_matrix, read_size,
-    read_tokens, read_vector, require_end, require_token, save_step,
+from matrix_tools import (
+    format_number, input_path, matrix_norm, print_vector, read_eps,
+    read_matrix, read_size, read_tokens, read_vector, require_end,
+    require_token, save_step, vector_difference,
 )
-from matrix_operations import matrix_norm, vector_difference
 
 
 def read_problem(
@@ -102,7 +102,7 @@ def solve_iterations(
     for k in range(1, max_iter + 1):
         x_prev = x
         x = method(alpha, beta, x_prev)
-        if not all(math.isfinite(value) for value in x):
+        if not all(isfinite(value) for value in x):
             raise ValueError("Итерации расходятся: получены неконечные значения.")
 
         change = vector_difference(x, x_prev)
