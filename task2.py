@@ -1,10 +1,11 @@
 from input_output import (
-    format_number, input_path, print_table, print_vector, read_size,
-    read_tokens, read_vector, require_end,
+    input_path, print_vector, read_size, read_tokens, read_vector, require_end,
 )
 
 
-def read_system(path):
+def read_system(
+        path: str
+) -> tuple[list[float], list[float], list[float], list[float]]:
     tokens = read_tokens(path)
     n = read_size(tokens[0])
     a, start = read_vector(tokens, n, 1)
@@ -17,7 +18,12 @@ def read_system(path):
     return a, b, c, d
 
 
-def sweep_coefficients(a, b, c, d):
+def sweep_coefficients(
+        a: list[float],
+        b: list[float],
+        c: list[float],
+        d: list[float]
+) -> tuple[list[float], list[float]]:
     n = len(b)
     P = [0.0] * n
     Q = [0.0] * n
@@ -37,7 +43,10 @@ def sweep_coefficients(a, b, c, d):
     return P, Q
 
 
-def back_substitution(P, Q):
+def back_substitution(
+        P: list[float],
+        Q: list[float]
+) -> list[float]:
     n = len(Q)
     x = [0.0] * n
     x[-1] = Q[-1]
@@ -46,7 +55,13 @@ def back_substitution(P, Q):
     return x
 
 
-def residual(a, b, c, d, x):
+def residual(
+        a: list[float],
+        b: list[float],
+        c: list[float],
+        d: list[float],
+        x: list[float]
+) -> float:
     error = 0.0
     for i in range(len(x)):
         value = b[i] * x[i] - d[i]
@@ -58,35 +73,14 @@ def residual(a, b, c, d, x):
     return error
 
 
-def print_solution(P, Q, x):
-    print("\n1. Прямой ход")
-    print("Pᵢ = −cᵢ / (bᵢ + aᵢPᵢ₋₁)")
-    print("Qᵢ = (dᵢ − aᵢQᵢ₋₁) / (bᵢ + aᵢPᵢ₋₁)")
-    rows = []
-    for i in range(len(P)):
-        rows.append((i + 1, format_number(P[i]), format_number(Q[i])))
-    print_table(("i", "Pᵢ", "Qᵢ"), rows)
-
-    print("\n2. Обратный ход")
-    n = len(x)
-    print(f"x[{n}] = Q[{n}] = {format_number(x[-1])}")
-    for i in range(n - 2, -1, -1):
-        terms = f"{format_number(P[i])} · {format_number(x[i + 1])}"
-        value = format_number(x[i])
-        print(f"x[{i + 1}] = {terms} + ({format_number(Q[i])}) = {value}")
-    print_vector("x", x)
-
-
-def main():
+def main() -> None:
     a, b, c, d = read_system(input_path("task2.txt"))
-    print_vector("a", a)
-    print_vector("b", b)
-    print_vector("c", c)
-    print_vector("d", d)
     P, Q = sweep_coefficients(a, b, c, d)
     x = back_substitution(P, Q)
-    print_solution(P, Q, x)
-    print(f"\nmax невязка = {residual(a, b, c, d, x):.3e}")
+
+    print_vector("P", P)
+    print_vector("Q", Q)
+    print_vector("x", x)
 
 
 if __name__ == "__main__":

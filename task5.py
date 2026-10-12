@@ -1,16 +1,20 @@
 import cmath
 import math
 
+import numpy as np
+
 from input_output import (
     format_number, input_path, print_matrix, print_vector, read_eps,
     read_matrix, read_size, read_tokens, require_end, require_token, save_step,
 )
 from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_difference, matrix_product, transpose,
+    copy_matrix, identity_matrix, matrix_product, matrices_equal, transpose,
 )
 
 
-def read_problem(path):
+def read_problem(
+        path: str
+) -> tuple[list[list[float]], float, list[list[float]]]:
     tokens = read_tokens(path)
     n = read_size(tokens[0])
     A, start = read_matrix(tokens, n, 1)
@@ -21,7 +25,9 @@ def read_problem(path):
     return A, eps, example
 
 
-def householder_matrix(b):
+def householder_matrix(
+        b: list[float]
+) -> list[list[float]]:
     n = len(b)
     E = identity_matrix(n)
     length = math.hypot(*b)
@@ -43,7 +49,9 @@ def householder_matrix(b):
     return H
 
 
-def qr_decomposition(A):
+def qr_decomposition(
+        A: list[list[float]]
+) -> tuple[list[list[float]], list[list[float]]]:
     n = len(A)
     Q = identity_matrix(n)
     R = copy_matrix(A)
@@ -59,14 +67,20 @@ def qr_decomposition(A):
     return Q, R
 
 
-def column_tail_norm(A, j):
+def column_tail_norm(
+        A: list[list[float]],
+        j: int
+) -> float:
     value = 0.0
     for i in range(j + 1, len(A)):
         value = math.hypot(value, A[i][j])
     return value
 
 
-def separation_norm(A, end):
+def separation_norm(
+        A: list[list[float]],
+        end: int
+) -> float:
     value = 0.0
     for i in range(end, len(A)):
         for j in range(end):
@@ -74,7 +88,10 @@ def separation_norm(A, end):
     return value
 
 
-def block_eigenvalues(A, i):
+def block_eigenvalues(
+        A: list[list[float]],
+        i: int
+) -> tuple[complex, complex]:
     a = A[i][i]
     b = A[i][i + 1]
     c = A[i + 1][i]
@@ -83,13 +100,20 @@ def block_eigenvalues(A, i):
     return ((a + d + root) / 2, (a + d - root) / 2)
 
 
-def pair_difference(values, previous):
+def pair_difference(
+        values: tuple[complex, complex],
+        previous: tuple[complex, complex]
+) -> float:
     direct = max(abs(values[0] - previous[0]), abs(values[1] - previous[1]))
     reverse = max(abs(values[0] - previous[1]), abs(values[1] - previous[0]))
     return min(direct, reverse)
 
 
-def isolated_eigenvalues(A, A_prev, eps):
+def isolated_eigenvalues(
+        A: list[list[float]],
+        A_prev: list[list[float]] | None,
+        eps: float
+) -> tuple[list[float | complex] | None, list[tuple]]:
     n = len(A)
     lambdas = []
     checks = []
@@ -124,7 +148,11 @@ def isolated_eigenvalues(A, A_prev, eps):
     return lambdas, checks
 
 
-def qr_eigenvalues(A0, eps, max_iter=10000):
+def qr_eigenvalues(
+        A0: list[list[float]],
+        eps: float,
+        max_iter: int = 10000
+) -> tuple[list[float | complex], int, list]:
     A = copy_matrix(A0)
     lambdas, checks = isolated_eigenvalues(A, None, eps)
     trace = []
@@ -146,47 +174,34 @@ def qr_eigenvalues(A0, eps, max_iter=10000):
     raise ValueError(f"QR-алгоритм не сошёлся за {max_iter} итераций.")
 
 
-def print_iterations(trace, eps):
-    for k, A, checks in trace:
-        print(f"\nQR-итерация {k}")
-        print_matrix("A", A)
-        for start, end, tail, coupling, change, values in checks:
-            print(f"Блок {start}–{end}: связь = {format_number(coupling)}")
-            if start == end:
-                print(f"Норма хвоста столбца = {format_number(tail)}")
-                print(f"Хвост и связь ≤ ε: {tail <= eps and coupling <= eps}")
-            else:
-                print_vector("Корни блока", values)
-                print(f"Изменение пары = {format_number(change)}")
-                ready = values[0].imag != 0 and coupling <= eps and change <= eps
-                print(f"Комплексная пара изолирована и устойчива: {ready}")
-
-
-def print_problem(title, A, eps):
+def print_problem(
+        title: str,
+        matrix: list[list[float]],
+        eps: float
+) -> list[float | complex]:
     print(f"\n{title}")
-    Q, R = qr_decomposition(A)
+    Q, R = qr_decomposition(matrix)
     QR = matrix_product(Q, R)
     QQ = matrix_product(transpose(Q), Q)
-    print_matrix("A", A)
+    print_matrix("A", matrix)
     print_matrix("Q", Q)
     print_matrix("R", R)
     print_matrix("Q · R", QR)
-    print(f"max |QR − A| = {matrix_difference(QR, A):.3e}")
-    print(f"max |QᵀQ − E| = {matrix_difference(QQ, identity_matrix(len(A))):.3e}")
-    print(f"\nТочность ε = {format_number(eps)}")
-    lambdas, k, trace = qr_eigenvalues(A, eps)
-    print_iterations(trace, eps)
-    print(f"\nЧисло QR-итераций: {k}")
+    print(f"Q · R = A: {matrices_equal(QR, matrix)}")
+    print(f"Qᵀ · Q = E: {matrices_equal(QQ, identity_matrix(len(matrix)))}")
+    print(f"Точность ε = {format_number(eps)}")
+    lambdas, k, trace = qr_eigenvalues(matrix, eps)
+    print(f"Число QR-итераций: {k}")
     print_vector("Собственные значения", lambdas)
-    if k == 0:
-        print("Матрица уже верхняя треугольная; нормы хвостов столбцов ≤ ε.")
     return lambdas
 
 
-def main():
+def main() -> None:
     A, eps, example = read_problem(input_path("task5.txt"))
     print_problem("1. Основная матрица", A, eps)
     lambdas = print_problem("2. Пример с комплексной парой", example, eps)
+    numpy_values = np.linalg.eigvals(np.array(example))
+    print_vector("NumPy check", [complex(value) for value in numpy_values])
     if not any(isinstance(value, complex) and value.imag != 0 for value in lambdas):
         raise ValueError("Дополнительный пример не содержит комплексной пары.")
 

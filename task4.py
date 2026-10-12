@@ -5,12 +5,14 @@ from input_output import (
     read_matrix, read_size, read_tokens, require_end, require_token, save_step,
 )
 from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_difference, matrix_product,
+    copy_matrix, identity_matrix, matrix_product, matrices_equal,
     off_diagonal_norm, transpose, zero_matrix,
 )
 
 
-def read_problem(path):
+def read_problem(
+        path: str
+) -> tuple[list[list[float]], float]:
     tokens = read_tokens(path)
     n = read_size(tokens[0])
     A, start = read_matrix(tokens, n, 1)
@@ -24,7 +26,9 @@ def read_problem(path):
     return A, eps
 
 
-def largest_off_diagonal(A):
+def largest_off_diagonal(
+        A: list[list[float]]
+) -> tuple[int, int]:
     i, j = 0, 0
     value = 0.0
     for row in range(len(A)):
@@ -35,7 +39,11 @@ def largest_off_diagonal(A):
     return i, j
 
 
-def jacobi_rotation(A, i, j):
+def jacobi_rotation(
+        A: list[list[float]],
+        i: int,
+        j: int
+) -> tuple[list[list[float]], float]:
     if A[i][i] == A[j][j]:
         phi = math.pi / 4
     else:
@@ -49,7 +57,11 @@ def jacobi_rotation(A, i, j):
     return U, phi
 
 
-def rotation_method(A0, eps, max_iter=100000):
+def rotation_method(
+        A0: list[list[float]],
+        eps: float,
+        max_iter: int = 100000
+) -> tuple[list[list[float]], list[list[float]], int, list]:
     A = copy_matrix(A0)
     V = identity_matrix(len(A))
     trace = []
@@ -73,45 +85,21 @@ def rotation_method(A0, eps, max_iter=100000):
     return A, V, k, trace
 
 
-def print_rotations(trace, eps):
-    for k, i, j, value, phi, U, A, t in trace:
-        print(f"\nВращение {k}: i = {i + 1}, j = {j + 1}")
-        print(f"aᵢⱼ = {format_number(value)}; φ = {format_number(phi)} рад")
-        print_matrix("U", U)
-        print_matrix("A после вращения", A)
-        print(f"t(A) = {format_number(t)}; t(A) < ε: {t < eps}")
-
-
-def main():
+def main() -> None:
     A0, eps = read_problem(input_path("task4.txt"))
-    print_matrix("A⁽⁰⁾", A0)
-    print(f"\nТочность ε = {format_number(eps)}")
-    print("Критерий: t(A) = sqrt(Σᵢ<ⱼ aᵢⱼ²) < ε")
-    print(f"Начальное t(A) = {format_number(off_diagonal_norm(A0))}")
-
     A, V, k, trace = rotation_method(A0, eps)
-    print_rotations(trace, eps)
-
-    print("\nРезультат")
     n = len(A)
     lambdas = [A[i][i] for i in range(n)]
     Lambda = zero_matrix(n)
     for i in range(n):
         Lambda[i][i] = lambdas[i]
+
+    print_matrix("A", A0)
+    print(f"Точность ε = {format_number(eps)}")
     print(f"Число вращений: {k}")
-    print(f"Конечное t(A) = {format_number(off_diagonal_norm(A))}")
     print_vector("Собственные значения", lambdas)
     print_matrix("V, собственные векторы по столбцам", V)
-    print_matrix("Λ", Lambda)
-
-    print("\nПроверки")
-    AV = matrix_product(A0, V)
-    VL = matrix_product(V, Lambda)
-    VV = matrix_product(transpose(V), V)
-    print_matrix("A⁽⁰⁾ · V", AV)
-    print_matrix("V · Λ", VL)
-    print(f"max |AV − VΛ| = {matrix_difference(AV, VL):.3e}")
-    print(f"max |VᵀV − E| = {matrix_difference(VV, identity_matrix(n)):.3e}")
+    print(f"A · V = V · Λ: {matrices_equal(matrix_product(A0, V), matrix_product(V, Lambda), eps)}")
 
 
 if __name__ == "__main__":

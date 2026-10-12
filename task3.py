@@ -1,16 +1,16 @@
 import math
+from typing import Callable
 
 from input_output import (
-    format_number, input_path, print_matrix, print_vector, read_eps,
-    read_matrix, read_size, read_tokens, read_vector, require_end,
-    require_token, save_step,
+    format_number, input_path, print_vector, read_eps, read_matrix, read_size,
+    read_tokens, read_vector, require_end, require_token, save_step,
 )
-from matrix_operations import (
-    matrix_norm, matrix_vector_product, vector_difference, zero_matrix,
-)
+from matrix_operations import matrix_norm, vector_difference
 
 
-def read_problem(path):
+def read_problem(
+        path: str
+) -> tuple[list[list[float]], list[float], float, list[float]]:
     tokens = read_tokens(path)
     n = read_size(tokens[0])
     A, start = read_matrix(tokens, n, 1)
@@ -21,9 +21,12 @@ def read_problem(path):
     return A, b, eps, x_ref
 
 
-def iteration_form(A, b):
+def iteration_form(
+        A: list[list[float]],
+        b: list[float]
+) -> tuple[list[list[float]], list[float]]:
     n = len(A)
-    alpha = zero_matrix(n)
+    alpha = [[0.0] * n for _ in range(n)]
     beta = [0.0] * n
     for i in range(n):
         if A[i][i] == 0:
@@ -35,10 +38,12 @@ def iteration_form(A, b):
     return alpha, beta
 
 
-def split_matrix(alpha):
+def split_matrix(
+        alpha: list[list[float]]
+) -> tuple[list[list[float]], list[list[float]]]:
     n = len(alpha)
-    B = zero_matrix(n)
-    C = zero_matrix(n)
+    B = [[0.0] * n for _ in range(n)]
+    C = [[0.0] * n for _ in range(n)]
     for i in range(n):
         for j in range(n):
             if j < i:
@@ -48,7 +53,11 @@ def split_matrix(alpha):
     return B, C
 
 
-def jacobi_iteration(alpha, beta, x_prev):
+def jacobi_iteration(
+        alpha: list[list[float]],
+        beta: list[float],
+        x_prev: list[float]
+) -> list[float]:
     n = len(beta)
     x = beta.copy()
     for i in range(n):
@@ -57,7 +66,11 @@ def jacobi_iteration(alpha, beta, x_prev):
     return x
 
 
-def seidel_iteration(alpha, beta, x_prev):
+def seidel_iteration(
+        alpha: list[list[float]],
+        beta: list[float],
+        x_prev: list[float]
+) -> list[float]:
     n = len(beta)
     x = beta.copy()
     for i in range(n):
@@ -68,7 +81,13 @@ def seidel_iteration(alpha, beta, x_prev):
     return x
 
 
-def solve_iterations(alpha, beta, eps, method, max_iter=100000):
+def solve_iterations(
+        alpha: list[list[float]],
+        beta: list[float],
+        eps: float,
+        method: Callable[[list[list[float]], list[float], list[float]], list[float]],
+        max_iter: int = 100000
+) -> tuple[list[float], int, list]:
     q = matrix_norm(alpha)
     B, C = split_matrix(alpha)
     factor = 1.0
@@ -95,64 +114,25 @@ def solve_iterations(alpha, beta, eps, method, max_iter=100000):
     raise ValueError(f"Метод не сошёлся за {max_iter} итераций.")
 
 
-def print_method(name, result, A, b, x_ref, q, eps):
-    x, k, trace = result
-    print(f"\n{name}")
-    for step, values, change, eps_k in trace:
-        print(f"\nИтерация {step}")
-        print_vector("x", values)
-        print(f"||x − x_prev||c = {format_number(change)}")
-        if q < 1:
-            print(f"ε⁽ᵏ⁾ = {format_number(eps_k)}; ε⁽ᵏ⁾ ≤ ε: {eps_k <= eps}")
-        else:
-            print(f"Изменение ≤ ε: {change <= eps}")
-
-    if q >= 1:
-        print("\nОстановка по изменению приближений; оценка погрешности не гарантирована.")
-    print(f"\nЧисло итераций: {k}")
-    print_vector("x", x)
-    Ax = matrix_vector_product(A, x)
-    print(f"||Ax − b||c = {vector_difference(Ax, b):.3e}")
-    print(f"||x − x_ref||c = {vector_difference(x, x_ref):.3e}")
-
-
-def main():
+def main() -> None:
     A, b, eps, x_ref = read_problem(input_path("task3.txt"))
     alpha, beta = iteration_form(A, b)
-    B, C = split_matrix(alpha)
-    q = matrix_norm(alpha)
 
-    print_matrix("A", A)
-    print_vector("b", b)
-    print(f"\nТочность ε = {format_number(eps)}")
-    print_matrix("alpha", alpha)
-    print_vector("beta", beta)
-    print_matrix("B", B)
-    print_matrix("C", C)
-    print_vector("x⁽⁰⁾ = beta", beta)
-    print(f"||alpha||c = {format_number(q)}")
-    print(f"||C||c = {format_number(matrix_norm(C))}")
-
-    if q < 1:
-        print("Простые итерации: ε⁽ᵏ⁾ = ||alpha||c / (1 − ||alpha||c) · ||x − x_prev||c")
-        print("Зейдель: ε⁽ᵏ⁾ = ||C||c / (1 − ||alpha||c) · ||x − x_prev||c")
-    else:
-        print("Критерий остановки: ||x − x_prev||c ≤ ε")
-
-    print_vector("Эталон x_ref", x_ref)
     jacobi = solve_iterations(alpha, beta, eps, jacobi_iteration)
     seidel = solve_iterations(alpha, beta, eps, seidel_iteration)
-    print_method("1. Простые итерации", jacobi, A, b, x_ref, q, eps)
-    print_method("2. Метод Зейделя", seidel, A, b, x_ref, q, eps)
 
-    print("\n3. Сравнение по числу итераций")
-    print(f"Простые итерации: {jacobi[1]}; Зейдель: {seidel[1]}")
+    print(f"Точность ε = {format_number(eps)}")
+    print(f"Простые итерации: {jacobi[1]}")
+    print_vector("x простых итераций", jacobi[0])
+    print(f"Метод Зейделя: {seidel[1]}")
+    print_vector("x Зейделя", seidel[0])
+    print_vector("Эталон x_ref", x_ref)
     if jacobi[1] > seidel[1]:
-        print(f"Зейдель потребовал на {jacobi[1] - seidel[1]} итераций меньше.")
+        print(f"Зейдель сходится быстрее на {jacobi[1] - seidel[1]} итераций.")
     elif seidel[1] > jacobi[1]:
-        print(f"Простые итерации потребовали на {seidel[1] - jacobi[1]} итераций меньше.")
+        print(f"Простые итерации сходятся быстрее на {seidel[1] - jacobi[1]} итераций.")
     else:
-        print("Число итераций одинаково.")
+        print("Методы сошлись за одинаковое число итераций.")
 
 
 if __name__ == "__main__":

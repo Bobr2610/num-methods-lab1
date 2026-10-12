@@ -3,12 +3,14 @@ from input_output import (
     read_size, read_tokens, read_vector, require_end, save_step,
 )
 from matrix_operations import (
-    copy_matrix, identity_matrix, matrix_difference, matrix_product,
-    matrix_vector_product, vector_difference, zero_matrix,
+    copy_matrix, identity_matrix, matrix_product, matrix_vector_product,
+    matrices_equal, zero_matrix,
 )
 
 
-def read_system(path):
+def read_system(
+        path: str
+) -> tuple[list[list[float]], list[float]]:
     tokens = read_tokens(path)
     n = read_size(tokens[0])
     A, start = read_matrix(tokens, n, 1)
@@ -17,7 +19,20 @@ def read_system(path):
     return A, b
 
 
-def lu_decomposition(A):
+def pivot_row(
+        U: list[list[float]],
+        k: int
+) -> int:
+    m = k
+    for i in range(k + 1, len(U)):
+        if abs(U[i][k]) > abs(U[m][k]):
+            m = i
+    return m
+
+
+def lu_decomposition(
+        A: list[list[float]]
+) -> tuple[list[list[float]], list[list[float]], list[list[float]], int, list]:
     n = len(A)
     L = identity_matrix(n)
     U = copy_matrix(A)
@@ -26,10 +41,7 @@ def lu_decomposition(A):
     trace = []
 
     for k in range(n):
-        m = k
-        for i in range(k + 1, n):
-            if abs(U[i][k]) > abs(U[m][k]):
-                m = i
+        m = pivot_row(U, k)
         if U[m][k] == 0:
             raise ValueError("Матрица вырождена: нулевой главный элемент.")
 
@@ -54,7 +66,10 @@ def lu_decomposition(A):
     return L, U, P, p, trace
 
 
-def forward_substitution(L, b):
+def forward_substitution(
+        L: list[list[float]],
+        b: list[float]
+) -> list[float]:
     n = len(L)
     z = [0.0] * n
     for i in range(n):
@@ -64,7 +79,10 @@ def forward_substitution(L, b):
     return z
 
 
-def back_substitution(U, z):
+def back_substitution(
+        U: list[list[float]],
+        z: list[float]
+) -> list[float]:
     n = len(U)
     x = [0.0] * n
     for i in range(n - 1, -1, -1):
@@ -75,15 +93,24 @@ def back_substitution(U, z):
     return x
 
 
-def solve_lu(L, U, P, b):
+def solve_lu(
+        L: list[list[float]],
+        U: list[list[float]],
+        P: list[list[float]],
+        b: list[float]
+) -> tuple[list[float], list[float], list[float]]:
     Pb = matrix_vector_product(P, b)
     z = forward_substitution(L, Pb)
     x = back_substitution(U, z)
     return Pb, z, x
 
 
-def inverse_from_lu(L, U, P):
-    n = len(L)
+def inverse_from_lu(
+        L: list[list[float]],
+        U: list[list[float]],
+        P: list[list[float]]
+) -> list[list[float]]:
+    n = len(P)
     E = identity_matrix(n)
     X = zero_matrix(n)
     for j in range(n):
@@ -94,60 +121,35 @@ def inverse_from_lu(L, U, P):
     return X
 
 
-def determinant_from_lu(U, p):
+def determinant_from_lu(
+        U: list[list[float]],
+        p: int
+) -> float:
     det = (-1.0) ** p
     for i in range(len(U)):
         det *= U[i][i]
     return det
 
 
-def print_elimination(trace):
-    print("\n1. Исключение с выбором главного элемента")
-    for k, m, values, U in trace:
-        print(f"\nШаг {k}: выбрана строка {m}")
-        for i, mu in values:
-            print(f"μ[{i}, {k}] = {format_number(mu)}")
-        print_matrix("U", U)
-
-
-def main():
+def main() -> None:
     A, b = read_system(input_path("task1.txt"))
     L, U, P, p, trace = lu_decomposition(A)
-    print_matrix("A", A)
-    print_vector("b", b)
-    print_elimination(trace)
-
-    print("\n2. Разложение PA = LU")
     LU = matrix_product(L, U)
     PA = matrix_product(P, A)
-    print_matrix("P", P)
+    Pb, z, x = solve_lu(L, U, P, b)
+    X = inverse_from_lu(L, U, P)
+    det = determinant_from_lu(U, p)
+    AX = matrix_product(A, X)
+    E = identity_matrix(len(A))
+
     print_matrix("L", L)
     print_matrix("U", U)
     print_matrix("L · U", LU)
-    print_matrix("P · A", PA)
-    print(f"max |LU − PA| = {matrix_difference(LU, PA):.3e}")
-
-    print("\n3. Решение Lz = Pb, Ux = z")
-    Pb, z, x = solve_lu(L, U, P, b)
-    print_vector("Pb", Pb)
-    print_vector("z", z)
     print_vector("x", x)
-    Ax = matrix_vector_product(A, x)
-    print(f"max |Ax − b| = {vector_difference(Ax, b):.3e}")
-
-    print("\n4. Обратная матрица и определитель")
-    X = inverse_from_lu(L, U, P)
-    det = determinant_from_lu(U, p)
-    print_matrix("X = A⁻¹", X)
-    print(f"Перестановок p = {p}")
-    print(f"det A = (−1)^p · ∏ uᵢᵢ = {format_number(det)}")
-
-    print("\n5. Проверка AX = E")
-    AX = matrix_product(A, X)
-    E = identity_matrix(len(A))
-    print_matrix("A · X", AX)
-    print_matrix("E", E)
-    print(f"max |AX − E| = {matrix_difference(AX, E):.3e}")
+    print_matrix("A⁻¹", X)
+    print(f"det A = {format_number(det)}")
+    print(f"A · A⁻¹ = E: {matrices_equal(AX, E)}")
+    print(f"L · U = P · A: {matrices_equal(LU, PA)}")
 
 
 if __name__ == "__main__":

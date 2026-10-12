@@ -3,7 +3,9 @@ import sys
 from pathlib import Path
 
 
-def input_path(default_name):
+def input_path(
+        default_name: str
+) -> str:
     if len(sys.argv) == 1:
         return str(Path(__file__).resolve().parent / "data" / default_name)
     if len(sys.argv) == 2:
@@ -11,7 +13,9 @@ def input_path(default_name):
     raise ValueError("Запуск: python <program.py> [input.txt]")
 
 
-def read_tokens(path):
+def read_tokens(
+        path: str
+) -> list[str]:
     with open(path, encoding="utf-8") as source:
         tokens = source.read().split()
     if not tokens:
@@ -19,28 +23,38 @@ def read_tokens(path):
     return tokens
 
 
-def read_size(token):
+def read_size(
+        token: str
+) -> int:
     n = int(token)
     if n < 1:
         raise ValueError("Размерность должна быть положительной.")
     return n
 
 
-def read_number(token):
+def read_number(
+        token: str
+) -> float:
     value = float(token)
     if not math.isfinite(value):
         raise ValueError("Входные числа должны быть конечными.")
     return value
 
 
-def read_eps(token):
+def read_eps(
+        token: str
+) -> float:
     eps = read_number(token)
     if eps <= 0:
         raise ValueError("Точность ε должна быть положительной.")
     return eps
 
 
-def read_vector(tokens, n, start):
+def read_vector(
+        tokens: list[str],
+        n: int,
+        start: int
+) -> tuple[list[float], int]:
     end = start + n
     if end > len(tokens):
         raise ValueError("Недостаточно элементов в файле данных.")
@@ -50,7 +64,11 @@ def read_vector(tokens, n, start):
     return values, end
 
 
-def read_matrix(tokens, n, start):
+def read_matrix(
+        tokens: list[str],
+        n: int,
+        start: int
+) -> tuple[list[list[float]], int]:
     A = []
     for i in range(n):
         row, start = read_vector(tokens, n, start)
@@ -58,18 +76,26 @@ def read_matrix(tokens, n, start):
     return A, start
 
 
-def require_end(tokens, end):
+def require_end(
+        tokens: list[str],
+        end: int
+) -> None:
     if end != len(tokens):
         raise ValueError("Лишние данные в конце файла.")
 
 
-def require_token(tokens, start):
+def require_token(
+        tokens: list[str],
+        start: int
+) -> str:
     if start >= len(tokens):
         raise ValueError("Недостаточно данных в файле.")
     return tokens[start]
 
 
-def format_number(value):
+def format_number(
+        value: float | complex
+) -> str:
     if isinstance(value, complex):
         if value.imag == 0:
             return f"{value.real:.10g}"
@@ -78,7 +104,9 @@ def format_number(value):
     return f"{value:.10g}"
 
 
-def print_rows(rows):
+def print_rows(
+        rows: list[list[str]]
+) -> None:
     widths = [0] * len(rows[0])
     for row in rows:
         for j in range(len(row)):
@@ -90,14 +118,20 @@ def print_rows(rows):
         print("  " + "  ".join(cells))
 
 
-def print_table(headers, rows):
+def print_table(
+        headers: tuple[str, ...],
+        rows: list[tuple]
+) -> None:
     values = [list(headers)]
     for row in rows:
         values.append([str(value) for value in row])
     print_rows(values)
 
 
-def print_matrix(name, A):
+def print_matrix(
+        name: str,
+        A: list[list[float]]
+) -> None:
     print(f"{name}:")
     rows = []
     for row in A:
@@ -105,12 +139,18 @@ def print_matrix(name, A):
     print_rows(rows)
 
 
-def print_vector(name, x):
+def print_vector(
+        name: str,
+        x: list[float | complex]
+) -> None:
     values = [format_number(value) for value in x]
     print(f"{name} = (" + ", ".join(values) + ")")
 
 
-def save_step(trace, step):
+def save_step(
+        trace: list,
+        step: tuple
+) -> None:
     if len(trace) < 3:
         trace.append(step)
     else:
