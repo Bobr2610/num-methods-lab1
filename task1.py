@@ -111,7 +111,7 @@ def print_elimination(trace):
 
 
 def main():
-    A, b = read_system(input_path())
+    A, b = read_system(input_path("task1.txt"))
     L, U, P, p, trace = lu_decomposition(A)
     print_matrix("A", A)
     print_vector("b", b)

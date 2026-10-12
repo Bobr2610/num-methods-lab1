@@ -83,7 +83,7 @@ def print_rotations(trace, eps):
 
 
 def main():
-    A0, eps = read_problem(input_path())
+    A0, eps = read_problem(input_path("task4.txt"))
     print_matrix("A⁽⁰⁾", A0)
     print(f"\nТочность ε = {format_number(eps)}")
     print("Критерий: t(A) = sqrt(Σᵢ<ⱼ aᵢⱼ²) < ε")

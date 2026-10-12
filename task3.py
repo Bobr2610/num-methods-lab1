@@ -117,7 +117,7 @@ def print_method(name, result, A, b, x_ref, q, eps):
 
 
 def main():
-    A, b, eps, x_ref = read_problem(input_path())
+    A, b, eps, x_ref = read_problem(input_path("task3.txt"))
     alpha, beta = iteration_form(A, b)
     B, C = split_matrix(alpha)
     q = matrix_norm(alpha)

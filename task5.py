@@ -184,7 +184,7 @@ def print_problem(title, A, eps):
 
 
 def main():
-    A, eps, example = read_problem(input_path())
+    A, eps, example = read_problem(input_path("task5.txt"))
     print_problem("1. Основная матрица", A, eps)
     lambdas = print_problem("2. Пример с комплексной парой", example, eps)
     if not any(isinstance(value, complex) and value.imag != 0 for value in lambdas):

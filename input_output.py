@@ -1,11 +1,14 @@
 import math
 import sys
+from pathlib import Path
 
 
-def input_path():
-    if len(sys.argv) != 2:
-        raise ValueError("Запуск: python <program.py> <input.txt>")
-    return sys.argv[1]
+def input_path(default_name):
+    if len(sys.argv) == 1:
+        return str(Path(__file__).resolve().parent / "data" / default_name)
+    if len(sys.argv) == 2:
+        return sys.argv[1]
+    raise ValueError("Запуск: python <program.py> [input.txt]")
 
 
 def read_tokens(path):

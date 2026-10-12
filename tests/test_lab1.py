@@ -15,11 +15,11 @@ sys.path.insert(0, str(ROOT))
 
 import input_output
 import matrix_operations as matrices
-import task_1_1_lu_decomposition as lu
-import task_1_2_sweep_method as sweep
-import task_1_3_jacobi_and_seidel_methods as iterations
-import task_1_4_jacobi_rotation_method as rotations
-import task_1_5_qr_eigenvalues as qr
+import task1 as lu
+import task2 as sweep
+import task3 as iterations
+import task4 as rotations
+import task5 as qr
 
 
 def fixture(name):
@@ -61,8 +61,10 @@ class Lab1Tests(unittest.TestCase):
         self.assertAlmostEqual(det, 946)
 
     def test_lu_pivots_and_single(self):
-        x, p, det = self.check_lu(ROOT / "data" / "task_1_1.txt")
+        x, p, det = self.check_lu(ROOT / "data" / "task1.txt")
+        np.testing.assert_allclose(x, [-3, 6, -3, -9], atol=1e-12)
         self.assertEqual(p, 2)
+        self.assertAlmostEqual(det, 2231)
         x, p, det = self.check_lu(fixture("lu_odd_swap.txt"))
         self.assertEqual(p, 1)
         self.assertAlmostEqual(det, -2)
@@ -117,7 +119,9 @@ class Lab1Tests(unittest.TestCase):
         self.assertGreater(seidel[2][1][3], 0.01)
 
     def test_iterations_current_and_single(self):
-        self.check_iterations(ROOT / "data" / "task_1_3.txt")
+        A, b, eps, x_ref = iterations.read_problem(ROOT / "data" / "task3.txt")
+        np.testing.assert_allclose(x_ref, [-5, -2, -6, -9], atol=1e-12)
+        self.check_iterations(ROOT / "data" / "task3.txt")
         self.check_iterations(fixture("iteration_single.txt"))
 
     def test_iterations_without_dominance(self):
@@ -144,7 +148,7 @@ class Lab1Tests(unittest.TestCase):
         return k
 
     def test_rotations(self):
-        self.check_rotation(ROOT / "data" / "task_1_4.txt")
+        self.check_rotation(ROOT / "data" / "task4.txt")
         self.assertEqual(self.check_rotation(fixture("rotation_book.txt")), 4)
         self.assertEqual(self.check_rotation(fixture("rotation_single.txt")), 0)
         self.assertEqual(self.check_rotation(fixture("rotation_diagonal.txt")), 0)
@@ -186,14 +190,13 @@ class Lab1Tests(unittest.TestCase):
         self.assert_eigenvalues(values, [1j, -1j], 1e-12)
 
     def test_qr_current_regression(self):
-        A, eps, example = qr.read_problem(ROOT / "data" / "task_1_5.txt")
-        self.assertEqual(A[2][1], 0)
-        self.assertNotEqual(A[2][0], 0)
+        A, eps, example = qr.read_problem(ROOT / "data" / "task5.txt")
+        self.assertEqual(A, [[2, -4, 5], [-5, -2, -3], [1, -8, -3]])
         values, checks = qr.isolated_eigenvalues(A, A, eps)
         self.assertIsNone(values)
-        values, k, trace = self.check_qr(ROOT / "data" / "task_1_5.txt")
+        values, k, trace = self.check_qr(ROOT / "data" / "task5.txt")
         self.assertGreater(k, 1)
-        self.assertFalse(any(abs(value - 2) <= eps for value in values))
+        self.assertTrue(any(isinstance(value, complex) and value.imag != 0 for value in values))
 
     def test_qr_single_diagonal_and_separation(self):
         self.check_qr(fixture("qr_single.txt"))
@@ -250,17 +253,17 @@ class Lab1Tests(unittest.TestCase):
 
     def test_cli(self):
         programs = (
-            "task_1_1_lu_decomposition.py",
-            "task_1_2_sweep_method.py",
-            "task_1_3_jacobi_and_seidel_methods.py",
-            "task_1_4_jacobi_rotation_method.py",
-            "task_1_5_qr_eigenvalues.py",
+            "task1.py",
+            "task2.py",
+            "task3.py",
+            "task4.py",
+            "task5.py",
         )
         env = dict(os.environ)
         env["PYTHONIOENCODING"] = "utf-8"
         for i, program in enumerate(programs, 1):
             with self.subTest(program=program):
-                path = ROOT / "data" / f"task_1_{i}.txt"
+                path = ROOT / "data" / f"task{i}.txt"
                 result = subprocess.run(
                     [sys.executable, str(ROOT / program), str(path)],
                     capture_output=True, encoding="utf-8", env=env, timeout=30,

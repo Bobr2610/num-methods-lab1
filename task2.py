@@ -78,7 +78,7 @@ def print_solution(P, Q, x):
 
 
 def main():
-    a, b, c, d = read_system(input_path())
+    a, b, c, d = read_system(input_path("task2.txt"))
     print_vector("a", a)
     print_vector("b", b)
     print_vector("c", c)
