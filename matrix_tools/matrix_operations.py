@@ -1,4 +1,4 @@
-from math import hypot
+from math import hypot, isfinite
 
 
 def zero_matrix(
@@ -55,12 +55,6 @@ def matrix_vector_product(
     return result
 
 
-def vector_norm(
-        x: list[float]
-) -> float:
-    return max(abs(value) for value in x)
-
-
 def matrix_norm(
         A: list[list[float]]
 ) -> float:
@@ -74,17 +68,6 @@ def vector_difference(
     return max(abs(x[i] - y[i]) for i in range(len(x)))
 
 
-def matrix_difference(
-        A: list[list[float]],
-        B: list[list[float]]
-) -> float:
-    error = 0.0
-    for i in range(len(A)):
-        for j in range(len(A)):
-            error = max(error, abs(A[i][j] - B[i][j]))
-    return error
-
-
 def matrices_equal(
         A: list[list[float]],
         B: list[list[float]],
@@ -96,7 +79,8 @@ def matrices_equal(
         if len(A[i]) != len(B[i]):
             return False
         for j in range(len(A[i])):
-            if abs(A[i][j] - B[i][j]) > eps:
+            difference = abs(A[i][j] - B[i][j])
+            if not isfinite(difference) or difference > eps:
                 return False
     return True
 

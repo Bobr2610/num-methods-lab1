@@ -93,13 +93,19 @@ def require_token(
     return tokens[start]
 
 
+def use_utf8_output() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def format_number(
         value: float | complex
 ) -> str:
     if isinstance(value, complex):
         if value.imag == 0:
             return f"{value.real:.10g}"
-        sign = "+" if value.imag >= 0 else "−"
+        sign = "+" if value.imag >= 0 else "-"
         return f"{value.real:.10g} {sign} {abs(value.imag):.10g}i"
     return f"{value:.10g}"
 
@@ -124,7 +130,11 @@ def print_table(
 ) -> None:
     values = [list(headers)]
     for row in rows:
-        values.append([str(value) for value in row])
+        values.append([
+            format_number(value) if isinstance(value, (int, float, complex))
+            else str(value)
+            for value in row
+        ])
     print_rows(values)
 
 
@@ -145,13 +155,3 @@ def print_vector(
 ) -> None:
     values = [format_number(value) for value in x]
     print(f"{name} = (" + ", ".join(values) + ")")
-
-
-def save_step(
-        trace: list,
-        step: tuple
-) -> None:
-    if len(trace) < 3:
-        trace.append(step)
-    else:
-        trace[-1] = step

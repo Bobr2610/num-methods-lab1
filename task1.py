@@ -2,9 +2,9 @@ from copy import deepcopy
 
 from matrix_tools import (
     format_number, identity_matrix, input_path, matrix_product,
-    matrix_vector_product, matrices_equal, print_matrix, print_vector,
-    read_matrix, read_size, read_tokens, read_vector, require_end, save_step,
-    zero_matrix,
+    matrix_vector_product, matrices_equal, print_matrix,
+    print_vector, read_matrix, read_size, read_tokens, read_vector,
+    require_end, use_utf8_output, zero_matrix,
 )
 
 
@@ -32,14 +32,12 @@ def pivot_row(
 
 def lu_decomposition(
         A: list[list[float]]
-) -> tuple[list[list[float]], list[list[float]], list[list[float]], int, list]:
+) -> tuple[list[list[float]], list[list[float]], list[list[float]], int]:
     n = len(A)
     L = identity_matrix(n)
     U = deepcopy(A)
     P = identity_matrix(n)
     p = 0
-    trace = []
-
     for k in range(n):
         m = pivot_row(U, k)
         if U[m][k] == 0:
@@ -52,18 +50,14 @@ def lu_decomposition(
                 L[k][j], L[m][j] = L[m][j], L[k][j]
             p += 1
 
-        values = []
         for i in range(k + 1, n):
             mu = U[i][k] / U[k][k]
             L[i][k] = mu
-            values.append((i + 1, mu))
             for j in range(k + 1, n):
                 U[i][j] -= mu * U[k][j]
             U[i][k] = 0.0
 
-        save_step(trace, (k + 1, m + 1, values, deepcopy(U)))
-
-    return L, U, P, p, trace
+    return L, U, P, p
 
 
 def forward_substitution(
@@ -98,11 +92,11 @@ def solve_lu(
         U: list[list[float]],
         P: list[list[float]],
         b: list[float]
-) -> tuple[list[float], list[float], list[float]]:
+) -> list[float]:
     Pb = matrix_vector_product(P, b)
     z = forward_substitution(L, Pb)
     x = back_substitution(U, z)
-    return Pb, z, x
+    return x
 
 
 def inverse_from_lu(
@@ -115,7 +109,7 @@ def inverse_from_lu(
     X = zero_matrix(n)
     for j in range(n):
         b = [E[i][j] for i in range(n)]
-        Pb, z, x = solve_lu(L, U, P, b)
+        x = solve_lu(L, U, P, b)
         for i in range(n):
             X[i][j] = x[i]
     return X
@@ -132,11 +126,12 @@ def determinant_from_lu(
 
 
 def main() -> None:
+    use_utf8_output()
     A, b = read_system(input_path("task1.txt"))
-    L, U, P, p, trace = lu_decomposition(A)
+    L, U, P, p = lu_decomposition(A)
     LU = matrix_product(L, U)
     PA = matrix_product(P, A)
-    Pb, z, x = solve_lu(L, U, P, b)
+    x = solve_lu(L, U, P, b)
     X = inverse_from_lu(L, U, P)
     det = determinant_from_lu(U, p)
     AX = matrix_product(A, X)
@@ -146,14 +141,11 @@ def main() -> None:
     print_matrix("U", U)
     print_matrix("L · U", LU)
     print_vector("x", x)
-    print_matrix("A⁻¹", X)
+    print_matrix("A^-1", X)
     print(f"det A = {format_number(det)}")
-    print(f"A · A⁻¹ = E: {matrices_equal(AX, E)}")
+    print(f"A · A^-1 = E: {matrices_equal(AX, E)}")
     print(f"L · U = P · A: {matrices_equal(LU, PA)}")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, OSError, OverflowError) as error:
-        raise SystemExit(str(error))
+    main()

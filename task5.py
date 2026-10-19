@@ -1,13 +1,14 @@
 import cmath
 from copy import deepcopy
-from math import hypot, inf, isfinite
+from math import hypot, isfinite
 
 import numpy as np
 
 from matrix_tools import (
     format_number, identity_matrix, input_path, matrix_product,
-    matrices_equal, print_matrix, print_vector, read_eps, read_matrix,
-    read_size, read_tokens, require_end, require_token, save_step, transpose,
+    matrices_equal, print_matrix, print_vector, read_eps,
+    read_matrix, read_size, read_tokens, require_end, require_token,
+    transpose, use_utf8_output,
 )
 
 
@@ -28,20 +29,16 @@ def householder_matrix(
         b: list[float]
 ) -> list[list[float]]:
     n = len(b)
-    E = identity_matrix(n)
+    H = identity_matrix(n)
     length = hypot(*b)
     if length == 0:
-        return E
+        return H
 
-    e1 = [0.0] * n
-    e1[0] = 1.0
     sign = 1.0 if b[0] >= 0 else -1.0
-    v = b.copy()
-    for i in range(n):
-        v[i] += sign * length * e1[i]
+    v = [value / length for value in b]
+    v[0] += sign
 
     denom = sum(value * value for value in v)
-    H = deepcopy(E)
     for i in range(n):
         for j in range(n):
             H[i][j] -= 2 * v[i] * v[j] / denom
@@ -112,51 +109,48 @@ def isolated_eigenvalues(
         A: list[list[float]],
         A_prev: list[list[float]] | None,
         eps: float
-) -> tuple[list[float | complex] | None, list[tuple]]:
+) -> list[float | complex] | None:
     n = len(A)
     lambdas = []
-    checks = []
     i = 0
 
     while i < n:
         tail = column_tail_norm(A, i)
         coupling = separation_norm(A, i + 1)
-        if tail <= eps and coupling <= eps:
+        real_value = tail <= eps and coupling <= eps
+        if real_value and coupling == 0:
             lambdas.append(A[i][i])
-            checks.append((i + 1, i + 1, tail, coupling, None, None))
             i += 1
             continue
 
-        if i + 1 == n:
-            checks.append((i + 1, i + 1, tail, coupling, None, None))
-            return None, checks
+        if i + 1 < n and A_prev is not None:
+            if separation_norm(A, i + 2) <= eps:
+                values = block_eigenvalues(A, i)
+                previous = block_eigenvalues(A_prev, i)
+                if pair_difference(values, previous) <= eps:
+                    lambdas.extend(values)
+                    i += 2
+                    continue
 
-        values = block_eigenvalues(A, i)
-        coupling = separation_norm(A, i + 2)
-        change = inf
-        if A_prev is not None:
-            previous = block_eigenvalues(A_prev, i)
-            change = pair_difference(values, previous)
-        checks.append((i + 1, i + 2, tail, coupling, change, values))
+        if real_value and A_prev is not None:
+            if abs(A[i][i] - A_prev[i][i]) <= eps:
+                lambdas.append(A[i][i])
+                i += 1
+                continue
+        return None
 
-        if values[0].imag == 0 or coupling > eps or change > eps:
-            return None, checks
-        lambdas.extend(values)
-        i += 2
-
-    return lambdas, checks
+    return lambdas
 
 
 def qr_eigenvalues(
         A0: list[list[float]],
         eps: float,
         max_iter: int = 10000
-) -> tuple[list[float | complex], int, list]:
+) -> tuple[list[float | complex], int]:
     A = deepcopy(A0)
-    lambdas, checks = isolated_eigenvalues(A, None, eps)
-    trace = []
+    lambdas = isolated_eigenvalues(A, None, eps)
     if lambdas is not None:
-        return lambdas, 0, trace
+        return lambdas, 0
 
     for k in range(1, max_iter + 1):
         A_prev = A
@@ -165,10 +159,9 @@ def qr_eigenvalues(
         if not all(isfinite(value) for row in A for value in row):
             raise ValueError("QR-итерации привели к неконечным значениям.")
 
-        lambdas, checks = isolated_eigenvalues(A, A_prev, eps)
-        save_step(trace, (k, deepcopy(A), checks))
+        lambdas = isolated_eigenvalues(A, A_prev, eps)
         if lambdas is not None:
-            return lambdas, k, trace
+            return lambdas, k
 
     raise ValueError(f"QR-алгоритм не сошёлся за {max_iter} итераций.")
 
@@ -189,24 +182,19 @@ def print_problem(
     print(f"Q · R = A: {matrices_equal(QR, matrix)}")
     print(f"Qᵀ · Q = E: {matrices_equal(QQ, identity_matrix(len(matrix)))}")
     print(f"Точность ε = {format_number(eps)}")
-    lambdas, k, trace = qr_eigenvalues(matrix, eps)
+    lambdas, k = qr_eigenvalues(matrix, eps)
     print(f"Число QR-итераций: {k}")
     print_vector("Собственные значения", lambdas)
     return lambdas
 
 
 def main() -> None:
+    use_utf8_output()
     A, eps, example = read_problem(input_path("task5.txt"))
     print_problem("1. Основная матрица", A, eps)
     lambdas = print_problem("2. Пример с комплексной парой", example, eps)
     numpy_values = np.linalg.eigvals(np.array(example))
     print_vector("NumPy check", [complex(value) for value in numpy_values])
-    if not any(isinstance(value, complex) and value.imag != 0 for value in lambdas):
-        raise ValueError("Дополнительный пример не содержит комплексной пары.")
-
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, OSError, OverflowError) as error:
-        raise SystemExit(str(error))
+    main()

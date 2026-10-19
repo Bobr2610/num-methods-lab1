@@ -2,9 +2,9 @@ from math import isfinite
 from typing import Callable
 
 from matrix_tools import (
-    format_number, input_path, matrix_norm, print_vector, read_eps,
-    read_matrix, read_size, read_tokens, read_vector, require_end,
-    require_token, save_step, vector_difference,
+    format_number, input_path, matrix_norm, matrix_product,
+    print_vector, read_eps, read_matrix, read_size, read_tokens, read_vector,
+    require_end, require_token, use_utf8_output, vector_difference,
 )
 
 
@@ -38,21 +38,6 @@ def iteration_form(
     return alpha, beta
 
 
-def split_matrix(
-        alpha: list[list[float]]
-) -> tuple[list[list[float]], list[list[float]]]:
-    n = len(alpha)
-    B = [[0.0] * n for _ in range(n)]
-    C = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if j < i:
-                B[i][j] = alpha[i][j]
-            else:
-                C[i][j] = alpha[i][j]
-    return B, C
-
-
 def jacobi_iteration(
         alpha: list[list[float]],
         beta: list[float],
@@ -81,40 +66,63 @@ def seidel_iteration(
     return x
 
 
+def residual_error_factor(
+        alpha: list[list[float]],
+        max_iter: int
+) -> float:
+    power = alpha
+    norm_sum = 1.0
+    for _ in range(max_iter):
+        q = matrix_norm(power)
+        if not isfinite(q) or not isfinite(norm_sum):
+            break
+        if q < 1:
+            return norm_sum / (1 - q)
+        norm_sum += q
+        power = matrix_product(power, alpha)
+    raise ValueError("Не удалось получить оценку ошибки через степень α.")
+
+
 def solve_iterations(
         alpha: list[list[float]],
         beta: list[float],
         eps: float,
         method: Callable[[list[list[float]], list[float], list[float]], list[float]],
         max_iter: int = 100000
-) -> tuple[list[float], int, list]:
+) -> tuple[list[float], int]:
     q = matrix_norm(alpha)
-    B, C = split_matrix(alpha)
-    factor = 1.0
     if q < 1:
         if method == jacobi_iteration:
             factor = q / (1 - q)
         else:
-            factor = matrix_norm(C) / (1 - q)
+            C_norm = max(
+                sum(abs(alpha[i][j]) for j in range(i, len(alpha)))
+                for i in range(len(alpha))
+            )
+            factor = C_norm / (1 - q)
+    else:
+        factor = residual_error_factor(alpha, max_iter)
 
     x = beta.copy()
-    trace = []
     for k in range(1, max_iter + 1):
         x_prev = x
         x = method(alpha, beta, x_prev)
         if not all(isfinite(value) for value in x):
             raise ValueError("Итерации расходятся: получены неконечные значения.")
 
-        change = vector_difference(x, x_prev)
-        eps_k = factor * change
-        save_step(trace, (k, x.copy(), change, eps_k))
+        if q < 1:
+            eps_k = factor * vector_difference(x, x_prev)
+        else:
+            residual = vector_difference(jacobi_iteration(alpha, beta, x), x)
+            eps_k = factor * residual
         if eps_k <= eps:
-            return x, k, trace
+            return x, k
 
     raise ValueError(f"Метод не сошёлся за {max_iter} итераций.")
 
 
 def main() -> None:
+    use_utf8_output()
     A, b, eps, x_ref = read_problem(input_path("task3.txt"))
     alpha, beta = iteration_form(A, b)
 
@@ -124,8 +132,10 @@ def main() -> None:
     print(f"Точность ε = {format_number(eps)}")
     print(f"Простые итерации: {jacobi[1]}")
     print_vector("x простых итераций", jacobi[0])
+    print(f"Отклонение от x_ref: {format_number(vector_difference(jacobi[0], x_ref))}")
     print(f"Метод Зейделя: {seidel[1]}")
     print_vector("x Зейделя", seidel[0])
+    print(f"Отклонение от x_ref: {format_number(vector_difference(seidel[0], x_ref))}")
     print_vector("Эталон x_ref", x_ref)
     if jacobi[1] > seidel[1]:
         print(f"Зейдель сходится быстрее на {jacobi[1] - seidel[1]} итераций.")
@@ -136,7 +146,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, OSError, OverflowError) as error:
-        raise SystemExit(str(error))
+    main()

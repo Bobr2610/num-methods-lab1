@@ -1,5 +1,6 @@
 from matrix_tools import (
     input_path, print_vector, read_size, read_tokens, read_vector, require_end,
+    use_utf8_output,
 )
 
 
@@ -74,6 +75,7 @@ def residual(
 
 
 def main() -> None:
+    use_utf8_output()
     a, b, c, d = read_system(input_path("task2.txt"))
     P, Q = sweep_coefficients(a, b, c, d)
     x = back_substitution(P, Q)
@@ -84,7 +86,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, OSError, OverflowError) as error:
-        raise SystemExit(str(error))
+    main()

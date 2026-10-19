@@ -5,7 +5,7 @@ from matrix_tools import (
     format_number, identity_matrix, input_path, matrix_product,
     matrices_equal, off_diagonal_norm, print_matrix, print_vector, read_eps,
     read_matrix, read_size, read_tokens, require_end, require_token,
-    save_step, transpose, zero_matrix,
+    print_table, transpose, use_utf8_output, zero_matrix,
 )
 
 
@@ -60,33 +60,33 @@ def rotation_method(
         A0: list[list[float]],
         eps: float,
         max_iter: int = 100000
-) -> tuple[list[list[float]], list[list[float]], int, list]:
+) -> tuple[list[list[float]], list[list[float]], int, list[tuple[int, float]]]:
     A = deepcopy(A0)
     V = identity_matrix(len(A))
-    trace = []
     t = off_diagonal_norm(A)
     k = 0
+    history = [(k, t)]
 
     while t >= eps:
         if k == max_iter:
             raise ValueError(f"Метод вращений не сошёлся за {max_iter} шагов.")
         i, j = largest_off_diagonal(A)
-        value = A[i][j]
-        U, phi = jacobi_rotation(A, i, j)
+        U, _ = jacobi_rotation(A, i, j)
         A = matrix_product(matrix_product(transpose(U), A), U)
         V = matrix_product(V, U)
         t = off_diagonal_norm(A)
         if not isfinite(t):
             raise ValueError("Получены неконечные значения при вращении.")
         k += 1
-        save_step(trace, (k, i, j, value, phi, U, deepcopy(A), t))
+        history.append((k, t))
 
-    return A, V, k, trace
+    return A, V, k, history
 
 
 def main() -> None:
+    use_utf8_output()
     A0, eps = read_problem(input_path("task4.txt"))
-    A, V, k, trace = rotation_method(A0, eps)
+    A, V, k, history = rotation_method(A0, eps)
     n = len(A)
     lambdas = [A[i][i] for i in range(n)]
     Lambda = zero_matrix(n)
@@ -96,13 +96,11 @@ def main() -> None:
     print_matrix("A", A0)
     print(f"Точность ε = {format_number(eps)}")
     print(f"Число вращений: {k}")
+    print_table(("Вращение", "Норма внедиагональной части"), history)
     print_vector("Собственные значения", lambdas)
     print_matrix("V, собственные векторы по столбцам", V)
     print(f"A · V = V · Λ: {matrices_equal(matrix_product(A0, V), matrix_product(V, Lambda), eps)}")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, OSError, OverflowError) as error:
-        raise SystemExit(str(error))
+    main()
